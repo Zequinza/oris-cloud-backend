@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION & USER MODELS
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  image     String?
+  
+  // Email verification
+  emailVerified Boolean @default(false)
+  
+  // Relations
+  subscriptions Subscription[]
+  disks         Disk[]
+  payments      Payment[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// CLOUD GAMING MODELS
+// ============================================
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  price       Float
+  duration    String   // "monthly", "yearly", "lifetime"
+  vCpus       Int      @default(4)
+  ramGB       Int      @default(16)
+  storageGB   Int      @default(256)
+  active      Boolean  @default(true)
+  
+  subscriptions Subscription[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  
+  status    String   @default("active") // "active", "expired", "cancelled"
+  
+  startDate DateTime @default(now())
+  expiresAt DateTime
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan     @relation(fields: [planId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("subscriptions")
+}
+
+model Disk {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  
+  // Specifications
+  vCpus     Int      @default(4)
+  ramGB     Int      @default(16)
+  sizeGB    Int      @default(256)
+  
+  // Status
+  isActive  Boolean  @default(true)
+  validUntil DateTime
+  
+  // Cloud provider info (e.g., Azure)
+  cloudProviderId String?
+  cloudResourceId String?
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("disks")
+}
+
+// ============================================
+// PAYMENT MODELS
+// ============================================
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  
+  amount    Float
+  currency  String   @default("BRL")
+  status    String   @default("pending") // "pending", "completed", "failed", "cancelled"
+  
+  // Payment provider info (e.g., Stripe, MercadoPago)
+  paymentProviderId String?
+  transactionId     String?
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([transactionId])
+  @@map("payments")
+}
+
+// ============================================
+// ADDITIONAL MODELS
+// ============================================
+
+model Stock {
+  id        String   @id @default(cuid())
+  planId    String
+  
+  total     Int
+  available Int
+  reserved  Int      @default(0)
+  
+  updatedAt DateTime @updatedAt
+
+  @@map("stocks")
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("email_verifications")
+}
